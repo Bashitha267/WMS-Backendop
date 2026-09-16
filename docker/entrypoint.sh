@@ -20,10 +20,10 @@ php artisan route:cache || true
 php artisan view:cache || true
 php artisan event:cache || true
 
-# Run database migrations if configured
-if [ "$RUN_MIGRATIONS" = "true" ] || [ "$RUN_MIGRATIONS" = "1" ]; then
+# Run database migrations (Laravel automatically skips existing and creates new tables)
+if [ "$SKIP_MIGRATIONS" != "true" ]; then
     echo "Running database migrations..."
-    php artisan migrate --force || echo "Migration encountered an issue or database is still connecting."
+    php artisan migrate --force || echo "Migration encountered an issue or database connection pending."
 fi
 
 # Start PHP-FPM as daemon
