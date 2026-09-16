@@ -59,19 +59,27 @@ class DashboardController extends Controller
         })->values();
 
         // Low Stock Analysis - Matches the threshold in Product.tsx (50 units)
-        $lowStockCount = \App\Models\Product::all()->filter(function ($p) {
-            $stock = \App\Models\Batch_Stock::where('product_id', $p->id)->sum('remain_qty');
-            $pending = \App\Models\LoadListItem::whereHas('loading', fn ($q) => $q->where('status', 'pending'))
-                ->whereIn('batch_id', \App\Models\Batch_Stock::where('product_id', $p->id)->pluck('id'))
-                ->sum('qty');
-            $total = (int) $stock + (int) $pending;
+        // Optimized: Calculate aggregated stock in 2 lightweight queries instead of 2N+1 queries
+        $shelfStocks = \App\Models\Batch_Stock::groupBy('product_id')
+            ->selectRaw('product_id, SUM(remain_qty) as total_stock')
+            ->pluck('total_stock', 'product_id');
 
-            // Low Stock is between 1 and 50 units (Combined shelf + pending)
-            return $total > 0 && $total <= 50;
-        })->count();
+        $pendingStocks = \App\Models\LoadListItem::query()
+            ->join('loadings', 'load_list_items.loading_id', '=', 'loadings.id')
+            ->join('batch__stocks', 'load_list_items.batch_id', '=', 'batch__stocks.id')
+            ->where('loadings.status', 'pending')
+            ->groupBy('batch__stocks.product_id')
+            ->selectRaw('batch__stocks.product_id, SUM(load_list_items.qty) as total_pending')
+            ->pluck('total_pending', 'product_id');
 
-        // Total Supply Cost (from Supplier Invoices)
-        $totalSupplyCost = (float) \App\Models\SupplierInvoice::sum('total_bill_amount');
+        $allProductIds = $shelfStocks->keys()->concat($pendingStocks->keys())->unique();
+        $lowStockCount = 0;
+        foreach ($allProductIds as $pid) {
+            $total = (int) ($shelfStocks[$pid] ?? 0) + (int) ($pendingStocks[$pid] ?? 0);
+            if ($total > 0 && $total <= 50) {
+                $lowStockCount++;
+            }
+        }
 
         return response()->json([
             'total_revenue' => (float) ($stats->total_revenue ?? 0),

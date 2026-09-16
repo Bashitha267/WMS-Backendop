@@ -14,9 +14,12 @@ use App\Http\Controllers\SalesRepController;
 use App\Http\Controllers\LoadingController;
 use App\Http\Controllers\LoadingItemsController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\PingController;
 use App\Http\Controllers\SaleController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+
+Route::get('/ping', PingController::class);
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);

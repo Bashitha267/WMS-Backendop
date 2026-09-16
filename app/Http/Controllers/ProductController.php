@@ -15,20 +15,20 @@ class ProductController extends Controller
     {
         $products = Product::with('supplier')->withSum('batchStocks as stock', 'remain_qty')->get();
 
-        // Include quantities from pending loading manifests as a separate field
+        // Optimized: Single pre-aggregated query for all pending quantities instead of N+1 queries per product
+        $pendingStocks = \App\Models\LoadListItem::query()
+            ->join('loadings', 'load_list_items.loading_id', '=', 'loadings.id')
+            ->join('batch__stocks', 'load_list_items.batch_id', '=', 'batch__stocks.id')
+            ->where('loadings.status', 'pending')
+            ->groupBy('batch__stocks.product_id')
+            ->selectRaw('batch__stocks.product_id, SUM(load_list_items.qty) as pending_qty')
+            ->pluck('pending_qty', 'product_id');
+
         foreach ($products as $product) {
-            $pendingQty = \App\Models\LoadListItem::whereHas('loading', function ($query) {
-                $query->where('status', 'pending');
-            })->whereIn('batch_id', \App\Models\Batch_Stock::where('product_id', $product->id)->pluck('id'))
-                ->sum('qty');
-
-            $product->shelf_stock = (int) ($product->stock ?? 0);
-            $product->pending_stock = (int) $pendingQty;
-
-            // total_units = current warehouse stock across all batches (remain_qty already = supply - loaded + returned)
-            $product->total_units = (int) \App\Models\Batch_Stock::where('product_id', $product->id)
-                ->where('remain_qty', '>', 0)
-                ->sum('remain_qty');
+            $shelfStock = (int) ($product->stock ?? 0);
+            $product->shelf_stock = $shelfStock;
+            $product->pending_stock = (int) ($pendingStocks[$product->id] ?? 0);
+            $product->total_units = $shelfStock;
         }
 
         return response()->json($products);
@@ -84,18 +84,17 @@ class ProductController extends Controller
     {
         $product = Product::withSum('batchStocks as stock', 'remain_qty')->findOrFail($id);
 
-        $pendingQty = \App\Models\LoadListItem::whereHas('loading', function ($query) {
-            $query->where('status', 'pending');
-        })->whereIn('batch_id', \App\Models\Batch_Stock::where('product_id', $product->id)->pluck('id'))
-            ->sum('qty');
+        $pendingQty = \App\Models\LoadListItem::query()
+            ->join('loadings', 'load_list_items.loading_id', '=', 'loadings.id')
+            ->join('batch__stocks', 'load_list_items.batch_id', '=', 'batch__stocks.id')
+            ->where('loadings.status', 'pending')
+            ->where('batch__stocks.product_id', $product->id)
+            ->sum('load_list_items.qty');
 
-        $product->shelf_stock = (int) ($product->stock ?? 0);
+        $shelfStock = (int) ($product->stock ?? 0);
+        $product->shelf_stock = $shelfStock;
         $product->pending_stock = (int) $pendingQty;
-
-        // total_units = current warehouse stock (remain_qty already = supply - loaded + returned)
-        $product->total_units = (int) \App\Models\Batch_Stock::where('product_id', $product->id)
-            ->where('remain_qty', '>', 0)
-            ->sum('remain_qty');
+        $product->total_units = $shelfStock;
 
         return response()->json($product);
     }
