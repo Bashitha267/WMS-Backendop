@@ -14,10 +14,15 @@ class SaleController extends Controller
     /**
      * Display a listing of sales.
      */
-    public function index()
+    public function index(Request $request)
     {
         try {
-            $sales = Sale::with(['user', 'items.product', 'items.batchStock.product'])->latest()->get();
+            $limit = (int) $request->input('limit', 150);
+            $sales = Sale::with(['user', 'items.product', 'items.batchStock.product'])
+                ->latest()
+                ->limit($limit)
+                ->get();
+
             return response()->json($sales);
         } catch (\Exception $e) {
             Log::error('Error fetching sales: ' . $e->getMessage());

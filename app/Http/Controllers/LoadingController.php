@@ -11,10 +11,14 @@ class LoadingController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
         try {
-            $loadings = Loading::with(['truck', 'route', 'driver', 'helper', 'cashCollector', 'salesRep', 'loadingItems.batchStock.product'])->latest()->get();
+            $limit = (int) $request->input('limit', 150);
+            $loadings = Loading::with(['truck', 'route', 'driver', 'helper', 'cashCollector', 'salesRep', 'loadingItems.batchStock.product'])
+                ->latest()
+                ->limit($limit)
+                ->get();
 
             return response()->json($loadings);
         } catch (\Exception $e) {
