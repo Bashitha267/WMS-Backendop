@@ -29,6 +29,12 @@ elif [ "$SKIP_MIGRATIONS" != "true" ]; then
     php artisan migrate --force || echo "Migration encountered an issue or database connection pending."
 fi
 
+# Run database seeders (runs by default or can be controlled via RUN_SEED / SKIP_SEED)
+if [ "$SKIP_SEED" != "true" ] && [ "$SKIP_SEEDING" != "true" ]; then
+    echo "Running database seeders..."
+    php artisan db:seed --force || echo "Database seeding encountered an issue."
+fi
+
 # Start PHP-FPM as daemon
 echo "Starting PHP-FPM..."
 php-fpm -D
