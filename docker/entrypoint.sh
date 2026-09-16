@@ -20,8 +20,11 @@ php artisan route:cache || true
 php artisan view:cache || true
 php artisan event:cache || true
 
-# Run database migrations (Laravel automatically skips existing and creates new tables)
-if [ "$SKIP_MIGRATIONS" != "true" ]; then
+# Run rollback if RUN_ROLLBACK is set, otherwise run standard migrations
+if [ "$RUN_ROLLBACK" = "true" ] || [ "$RUN_ROLLBACK" = "1" ]; then
+    echo "Running database migration rollback..."
+    php artisan migrate:rollback --force || echo "Rollback encountered an issue."
+elif [ "$SKIP_MIGRATIONS" != "true" ]; then
     echo "Running database migrations..."
     php artisan migrate --force || echo "Migration encountered an issue or database connection pending."
 fi
