@@ -558,29 +558,31 @@ class DatabaseSeeder extends Seeder
             ]],
         ];
 
-        foreach ($salesData as $sd) {
-            $sale = Sale::create([
-                'date_time'    => Carbon::now()->subHours($sd['hours_ago']),
-                'user_id'      => $cashierUser->id,
-                'total'        => $sd['total'],
-                'discount'     => $sd['discount'],
-                'payment_type' => $sd['pay'],
-            ]);
-
-            foreach ($sd['items'] as $item) {
-                $pObj = $products[$item['prod']];
-                $bObj = $batches[$item['prod']];
-
-                SaleItem::create([
-                    'sale_id'      => $sale->id,
-                    'batch_id'     => $bObj->id,
-                    'product_id'   => $pObj->id,
-                    'qty'          => $item['qty'],
-                    'retail_price' => $item['retail'],
-                    'unit_price'   => $item['unit'],
-                    'total'        => $item['tot'],
-                    'discount'     => 0.00,
+        if (Sale::count() === 0) {
+            foreach ($salesData as $sd) {
+                $sale = Sale::create([
+                    'date_time'    => Carbon::now()->subHours($sd['hours_ago']),
+                    'user_id'      => $cashierUser->id,
+                    'total'        => $sd['total'],
+                    'discount'     => $sd['discount'],
+                    'payment_type' => $sd['pay'],
                 ]);
+
+                foreach ($sd['items'] as $item) {
+                    $pObj = $products[$item['prod']];
+                    $bObj = $batches[$item['prod']];
+
+                    SaleItem::create([
+                        'sale_id'      => $sale->id,
+                        'batch_id'     => $bObj->id,
+                        'product_id'   => $pObj->id,
+                        'qty'          => $item['qty'],
+                        'retail_price' => $item['retail'],
+                        'unit_price'   => $item['unit'],
+                        'total'        => $item['tot'],
+                        'discount'     => 0.00,
+                    ]);
+                }
             }
         }
     }
